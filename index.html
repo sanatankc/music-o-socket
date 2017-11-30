@@ -1,0 +1,176 @@
+
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, minimal-ui, maximum-scale=1, minimum-scale=1" />
+    <title>Socket.IO chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      }
+
+      .animate-up {
+        transform: translateY(-100vh);
+      }
+
+      .animate-left {
+        transform: translateX(-100vw);
+      }
+
+      .container {
+        position: absolute;
+        transition: 0.4s all ease-in-out;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+      }
+      @media (max-width: 600px) {
+        .container {
+          flex-direction: column;
+        }
+      }
+      .container > div {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex: 1;
+        font-size: 48px;
+        letter-spacing: 4px;
+        color: rgba(255, 255, 255, 0.3);
+      }
+      .container > div.option-1 {
+        background: #FC6DAB;
+        cursor: pointer;
+        transition: 0.3s all ease-in-out;
+      }
+      .container > div.option-1:hover {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .container > div.option-2 {
+        background: #F7F6C5;
+        color: rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: 0.3s all ease-in-out;
+      }
+      .container > div.option-2:hover {
+        color: rgba(0, 0, 0, 0.8);
+      }
+      .container > div.receiving {
+        background: #F3FAE1;
+        color: rgba(0, 0, 0, 0.6);
+      }
+
+      .screen-0 {
+        z-index: 10;
+      }
+
+      .screen-1 {
+        z-index: 9;
+        text-align: center;
+      }
+
+      .screen-2 {
+        z-index: 9;
+        text-align: center;
+      }
+
+      .screen-3 {
+        z-index: 7;
+        text-align: center;
+      }
+
+      .hide {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container screen-0">
+      <div class="option-1">Sender</div>
+      <div class="option-2">Receiver</div>
+    </div>
+
+    <div class="container screen-1">
+      <div class='receiving'>Listening to sockets...</div>
+    </div>
+
+    <div class="container screen-2">
+      <div class="option-1">Gain</div>
+      <div class="option-2">Frequency</div>
+    </div>
+
+    <div class="container screen-3">
+      <div class='receiving'></div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const $ = selection => document.querySelector(selection)
+      const $$ = selection => document.querySelectorAll(selection)
+      const socket = io()
+      const mapRange = (obj, num) =>
+  (((num - obj.first[0]) * (obj.second[1] - obj.second[0])) / (obj.first[1] - obj.first[0])) + obj.second[0]
+      // Controls
+      $$('.screen-0 div')
+        .forEach(elem => {
+          elem.addEventListener('click', (e) => {
+            $('.screen-0').classList.add('animate-up')
+
+            if (e.target.classList[0] === 'option-1') {
+              $('.screen-1').classList.add('hide')
+            } else {
+              $('.screen-2').classList.add('hide')
+              socket.emit('receiverConnect', 'receiver')
+              listenOrientation()
+            }
+        })
+      })
+
+      $$('.screen-2 div')
+        .forEach(elem => {
+          elem.addEventListener('click', (e) => {
+            $('.screen-2').classList.add('animate-up')
+
+            if(e.target.classList[0] === 'option-1') {
+              $('.screen-3 > div').innerText = 'Sending Gain....'
+              socket.emit('gainConnect', 'gain')
+              sendOrientation('gain')
+            } else {
+              $('.screen-3 > div').innerText = 'Seding Freq....'
+              socket.emit('freqConnect', 'freq')
+              sendOrientation('freq')
+            }
+        })
+      })
+
+      const sendOrientation = event => {
+        window.addEventListener('deviceorientation', (e) => {
+          socket.emit(`${event}Change`, {
+            alpha: e.alpha,
+            beta: e.beta,
+            gamma: e.gamma,
+          })
+        })
+      }
+
+      const listenOrientation = () => {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        const oscillator = audioCtx.createOscillator()
+        oscillator.type = 'sine'
+        oscillator.connect(audioCtx.destination)
+        oscillator.start(0)
+        socket.on('freqChange', data => {
+          const freq = mapRange({
+            first: [-180, 180],
+            second: [-22050, 22050]
+          }, data.beta)
+          console.log(freq)
+          oscillator.frequency.value = freq
+        })
+      }
+    </script>
+  </body>
+</html>
